@@ -2,9 +2,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const fetch = require("node-fetch");
 const nodemailer = require("nodemailer");
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-});
+const client = new Anthropic();
 
 function getPostType() {
   const hour = new Date().getHours();
