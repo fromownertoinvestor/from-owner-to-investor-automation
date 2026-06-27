@@ -2,10 +2,10 @@ const Anthropic = require("@anthropic-ai/sdk");
 const fetch = require("node-fetch");
 const nodemailer = require("nodemailer");
 
-// Initialize client - SIMPLE WAY
-const client = new Anthropic();
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+});
 
-// Get post type based on hour
 function getPostType() {
   const hour = new Date().getHours();
   if (hour === 7) return "scaling";
@@ -14,7 +14,6 @@ function getPostType() {
   return "engagement";
 }
 
-// Generate content
 async function generateContent(postType) {
   try {
     const prompts = {
@@ -37,30 +36,31 @@ async function generateContent(postType) {
   }
 }
 
-// Post to Instagram
 async function postToInstagram(content) {
   try {
     const response = await fetch(
-      `https://graph.instagram.com/v18.0/${process.env.INSTAGRAM_PAGE_ID}/caption_type`,
+      `https://graph.instagram.com/v18.0/${process.env.INSTAGRAM_PAGE_ID}/feed`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          media_type: "CAROUSEL",
-          caption: content,
+          message: content,
           access_token: process.env.INSTAGRAM_TOKEN
         })
       }
     );
 
-    return { success: response.ok, status: response.status };
+    const data = await response.json();
+    console.log("Instagram response status:", response.status);
+    console.log("Instagram response data:", data);
+
+    return { success: response.ok, status: response.status, data };
   } catch (error) {
     console.error("Instagram error:", error.message);
-    return { success: false, status: 500 };
+    return { success: false, status: 500, error: error.message };
   }
 }
 
-// Send email
 async function sendEmail(postType, content, result) {
   try {
     const transporter = nodemailer.createTransport({
@@ -81,7 +81,8 @@ async function sendEmail(postType, content, result) {
         <h3>Content:</h3>
         <p>${content.replace(/\n/g, '<br>')}</p>
         <h3>Status:</h3>
-        <p>${result.success ? "✅ Posted" : "❌ Failed (" + result.status + ")"}</p>
+        <p>${result.success ? "✅ Posted Successfully" : "❌ Failed - Status " + result.status}</p>
+        ${result.data ? `<p style="font-size: 12px;"><strong>Response:</strong> ${JSON.stringify(result.data)}</p>` : ''}
       `
     });
 
@@ -91,12 +92,17 @@ async function sendEmail(postType, content, result) {
   }
 }
 
-// Main function
 async function main() {
   console.log("Starting automation...");
   const postType = getPostType();
+  console.log("Post type:", postType);
+  
   const content = await generateContent(postType);
+  console.log("Content generated");
+  
   const result = await postToInstagram(content);
+  console.log("Instagram result:", result);
+  
   await sendEmail(postType, content, result);
   console.log("Done");
 }
