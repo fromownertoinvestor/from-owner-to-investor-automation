@@ -2,6 +2,24 @@ const Anthropic = require("@anthropic-ai/sdk");
 const fetch = require("node-fetch");
 const nodemailer = require("nodemailer");
 
+// Initialize Anthropic client with API key
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+});
+
+// Configuration
+const CONFIG = {
+  instagramToken: process.env.INSTAGRAM_TOKEN,
+  anthropicKey: process.env.ANTHROPIC_API_KEY,
+  instagramPageId: process.env.INSTAGRAM_PAGE_ID,
+  emailUser: process.env.EMAIL_USER,
+  emailPassword: process.env.EMAIL_PASSWORD,
+  recipientEmail: "whaleskonzult@gmail.com",
+};
+const Anthropic = require("@anthropic-ai/sdk");
+const fetch = require("node-fetch");
+const nodemailer = require("nodemailer");
+
 const client = new Anthropic();
 
 // Configuration
