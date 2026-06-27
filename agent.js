@@ -1,10 +1,36 @@
-const Anthropic = require("@anthropic-ai/sdk").default;
 const fetch = require("node-fetch");
 const nodemailer = require("nodemailer");
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-});
+// Call Claude API directly
+async function callClaude(prompt) {
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-6",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error("Claude API error:", data);
+      return null;
+    }
+
+    return data.content[0].text;
+  } catch (error) {
+    console.error("Claude request error:", error.message);
+    return null;
+  }
+}
 
 function getPostType() {
   const hour = new Date().getHours();
@@ -15,25 +41,20 @@ function getPostType() {
 }
 
 async function generateContent(postType) {
-  try {
-    const prompts = {
-      scaling: "Generate a 150-200 word Instagram post about scaling small businesses. Professional tone, no emojis.",
-      ma: "Generate a 150-200 word Instagram post about M&A and acquisitions. Professional tone, no emojis.",
-      exit: "Generate a 150-200 word Instagram post about exit planning. Professional tone, no emojis.",
-      engagement: "Generate an 80-120 word Instagram post asking followers about their business challenges."
-    };
+  const prompts = {
+    scaling: "Generate a 150-200 word Instagram post about scaling small businesses. Professional tone, no emojis.",
+    ma: "Generate a 150-200 word Instagram post about M&A and acquisitions. Professional tone, no emojis.",
+    exit: "Generate a 150-200 word Instagram post about exit planning. Professional tone, no emojis.",
+    engagement: "Generate an 80-120 word Instagram post asking followers about their business challenges."
+  };
 
-    const message = await client.messages.create({
-      model: "claude-opus-4-6",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompts[postType] || prompts.engagement }]
-    });
-
-    return message.content[0].text;
-  } catch (error) {
-    console.error("Claude error:", error.message);
+  const content = await callClaude(prompts[postType] || prompts.engagement);
+  
+  if (!content) {
     return "What's your biggest business challenge right now? Drop it in the comments.";
   }
+  
+  return content;
 }
 
 async function postToInstagram(content) {
@@ -51,8 +72,8 @@ async function postToInstagram(content) {
     );
 
     const data = await response.json();
-    console.log("Instagram response status:", response.status);
-    console.log("Instagram response data:", data);
+    console.log("Instagram status:", response.status);
+    console.log("Instagram response:", data);
 
     return { success: response.ok, status: response.status, data };
   } catch (error) {
@@ -73,7 +94,7 @@ async function sendEmail(postType, content, result) {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: "whaleskonzult@gmail.com",
-      subject: `Instagram Post - ${postType} - ${time}`,
+      subject: `Instagram - ${postType} - ${time}`,
       html: `
         <h2>From Owner to Investor</h2>
         <p><strong>Time:</strong> ${time}</p>
@@ -82,11 +103,11 @@ async function sendEmail(postType, content, result) {
         <p>${content.replace(/\n/g, '<br>')}</p>
         <h3>Status:</h3>
         <p>${result.success ? "✅ Posted Successfully" : "❌ Failed - Status " + result.status}</p>
-        ${result.data ? `<p style="font-size: 12px;"><strong>Response:</strong> ${JSON.stringify(result.data)}</p>` : ''}
+        ${result.data ? `<p style="font-size: 11px; color: #666;"><strong>API Response:</strong> ${JSON.stringify(result.data)}</p>` : ''}
       `
     });
 
-    console.log("Email sent");
+    console.log("Email sent successfully");
   } catch (error) {
     console.error("Email error:", error.message);
   }
@@ -94,6 +115,7 @@ async function sendEmail(postType, content, result) {
 
 async function main() {
   console.log("Starting automation...");
+  
   const postType = getPostType();
   console.log("Post type:", postType);
   
